@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Disk Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e3a5f',
+                        accent: '#f59e0b',
+                        dark: '#0f172a',
+                        card: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .btn-primary { background: #f59e0b; color: #0f172a; font-weight: 600; }
+        .btn-primary:hover { background: #d97706; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #3b82f6; color: white; }
+        .btn-secondary:hover { background: #2563eb; }
+        .input-field { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; }
+        .input-field:focus { border-color: #f59e0b; outline: none; }
+        .nav-link { color: #94a3b8; transition: color 0.2s; }
+        .nav-link:hover, .nav-link.active { color: #f59e0b; }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .progress-bar { height: 8px; border-radius: 4px; background: #334155; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <nav class="bg-card border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-hdd text-accent text-xl"></i>
+                    <span class="font-bold text-lg">Disk Monitor</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <a href="/" class="nav-link {{ 'active' if section == 'dashboard' else '' }}">
+                        <i class="fas fa-chart-line mr-1"></i> Stats
+                    </a>
+                    <a href="/admin" class="nav-link {{ 'active' if section == 'admin' else '' }}">
+                        <i class="fas fa-tools mr-1"></i> Nettoyage
+                    </a>
+                    <a href="/admin/settings" class="nav-link {{ 'active' if section == 'settings' else '' }}">
+                        <i class="fas fa-cog mr-1"></i> Paramètres
+                    </a>
+                    <div class="flex items-center gap-2 text-slate-400 text-sm">
+                        <i class="fas fa-user-circle"></i>
+                        <span id="user-email"></span>
+                        <button id="logout-btn" class="ml-2 text-red-400 hover:text-red-300">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let authToken = localStorage.getItem('token');
+
+        async function checkAuth() {
+            if (!authToken) {
+                window.location.href = '/login';
+                return false;
+            }
+            try {
+                const r = await fetch(API_BASE + '/auth/me', {
+                    headers: { 'Authorization': 'Bearer ' + authToken }
+                });
+                if (!r.ok) { localStorage.removeItem('token'); window.location.href = '/login'; return false; }
+                const data = await r.json();
+                document.getElementById('user-email').textContent = data.email;
+                return true;
+            } catch (e) {
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+                return false;
+            }
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        });
+
+        async function apiFetch(url, options = {}) {
+            const res = await fetch(API_BASE + url, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + authToken,
+                    ...options.headers,
+                }
+            });
+            if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login'; }
+            return res.json();
+        }
+
+        function formatBytes(b) {
+            if (!b) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let i = 0;
+            while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
+            return b.toFixed(1) + ' ' + units[i];
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '-';
+            return new Date(iso).toLocaleString('fr-FR');
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

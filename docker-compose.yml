@@ -1,0 +1,33 @@
+# Disk Monitor - Surveillance et nettoyage disque
+# Accessible sur stat.it-sefako.com
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-me-pls}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
+      DB_PATH: /data/disk_monitor.db
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - disk_data:/data
+      # Docker socket pour permettre les commandes docker depuis le conteneur
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.disk_monitor.rule=Host(`stat.it-sefako.com`)"
+      - "traefik.http.routers.disk_monitor.entrypoints=websecure"
+      - "traefik.http.routers.disk_monitor.tls.certresolver=myresolver"
+      - "traefik.http.services.disk_monitor.loadbalancer.server.port=8000"
+    networks:
+      - proxy_net
+
+volumes:
+  disk_data:
+
+networks:
+  proxy_net:
+    external: true

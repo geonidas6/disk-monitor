@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+            <i class="fas fa-chart-pie text-accent"></i> Statistiques disque
+        </h1>
+        <p class="text-slate-400 mt-1">Vue d'ensemble de l'utilisation du disque</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card rounded-xl p-5">
+            <div class="text-slate-400 text-sm mb-1">Total</div>
+            <div class="stat-value text-blue-400" id="stat-total">-</div>
+        </div>
+        <div class="card rounded-xl p-5">
+            <div class="text-slate-400 text-sm mb-1">Utilisé</div>
+            <div class="stat-value text-accent" id="stat-used">-</div>
+        </div>
+        <div class="card rounded-xl p-5">
+            <div class="text-slate-400 text-sm mb-1">Libre</div>
+            <div class="stat-value text-green-400" id="stat-free">-</div>
+        </div>
+        <div class="card rounded-xl p-5">
+            <div class="text-slate-400 text-sm mb-1">Taux d'utilisation</div>
+            <div class="stat-value" id="stat-percent">-</div>
+            <div class="progress-bar mt-2">
+                <div class="progress-fill bg-accent" id="progress-bar" style="width:0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card rounded-xl p-6">
+            <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <i class="fab fa-docker text-blue-400"></i> Docker
+            </h2>
+            <div class="space-y-3">
+                <div class="flex justify-between"><span class="text-slate-400">Images</span><span id="docker-images" class="font-mono">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Conteneurs</span><span id="docker-containers" class="font-mono">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Volumes</span><span id="docker-volumes" class="font-mono">-</span></div>
+                <div class="flex justify-between border-t border-slate-700 pt-3 mt-3"><span class="text-slate-400">Taille totale Docker</span><span id="docker-total" class="font-mono">-</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Réutilisable</span><span id="docker-reclaimable" class="font-mono text-green-400">-</span></div>
+            </div>
+        </div>
+
+        <div class="card rounded-xl p-6">
+            <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <i class="fas fa-broom text-accent"></i> Actions rapides
+            </h2>
+            <div class="space-y-2">
+                <button onclick="runCleanup('docker_prune')" class="w-full btn-danger py-2 px-4 rounded-lg text-left flex items-center gap-3">
+                    <i class="fas fa-trash-alt w-5"></i>
+                    <div><div class="font-semibold">Docker prune complet</div><div class="text-xs text-slate-400">Images + volumes + cache</div></div>
+                </button>
+                <button onclick="runCleanup('docker_images')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
+                    <i class="fas fa-images w-5 text-blue-400"></i>
+                    <div><div class="font-semibold">Supprimer images inutilisées</div><div class="text-xs text-slate-400">Images non utilisées</div></div>
+                </button>
+                <button onclick="runCleanup('logs')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
+                    <i class="fas fa-scroll w-5 text-purple-400"></i>
+                    <div><div class="font-semibold">Rotation logs</div><div class="text-xs text-slate-400">Journalctl < 50MB</div></div>
+                </button>
+                <button onclick="runCleanup('tmp')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
+                    <i class="fas fa temp w-5 text-yellow-400"></i>
+                    <div><div class="font-semibold">Vider /tmp</div><div class="text-xs text-slate-400">Fichiers temporaires</div></div>
+                </button>
+                <button onclick="runCleanup('pnpm')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
+                    <i class="fab fa-npm w-5 text-red-400"></i>
+                    <div><div class="font-semibold">Cache pnpm</div><div class="text-xs text-slate-400">Supprimer le store pnpm</div></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card rounded-xl p-6">
+        <h2 class="font-bold text-lg mb-4 flex items-center gap-2">
+            <i class="fas fa-history text-slate-400"></i> Historique des nettoyages
+        </h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-slate-400 text-left border-b border-slate-700">
+                        <th class="pb-2">Date</th>
+                        <th class="pb-2">Action</th>
+                        <th class="pb-2">Statut</th>
+                        <th class="pb-2">Détails</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function loadStats() {
+        const stats = await apiFetch('/disks/stats');
+        document.getElementById('stat-total').textContent = stats.total_str || formatBytes(stats.total);
+        document.getElementById('stat-used').textContent = stats.used_str || formatBytes(stats.used);
+        document.getElementById('stat-free').textContent = stats.free_str || formatBytes(stats.free);
+        const pct = stats.use_percent || 0;
+        document.getElementById('stat-percent').textContent = pct.toFixed(1) + '%';
+        const bar = document.getElementById('progress-bar');
+        bar.style.width = pct + '%';
+        bar.className = 'progress-fill ' + (pct > 85 ? 'bg-red-500' : pct > 70 ? 'bg-yellow-500' : 'bg-accent');
+
+        document.getElementById('docker-images').textContent = stats.docker_images_count || 0;
+        document.getElementById('docker-containers').textContent = stats.docker_containers_count || 0;
+        document.getElementById('docker-volumes').textContent = stats.docker_volumes_count || 0;
+        document.getElementById('docker-total').textContent = stats.docker_total ? formatBytes(stats.docker_total) : '-';
+        document.getElementById('docker-reclaimable').textContent = stats.reclaimable_str || formatBytes(stats.reclaimable || 0);
+    }
+
+    async function loadHistory() {
+        const history = await apiFetch('/disks/history?limit=20');
+        const tbody = document.getElementById('history-table');
+        if (!history.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500">Aucun historique</td></tr>';
+            return;
+        }
+        tbody.innerHTML = history.map(h => `
+            <tr class="border-b border-slate-800 hover:bg-slate-800/50">
+                <td class="py-2 text-slate-400">${formatDate(h.created_at)}</td>
+                <td class="py-2 font-mono text-xs">${h.action}</td>
+                <td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs ${h.status === 'ok' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${h.status}</span></td>
+                <td class="py-2 text-slate-400 text-xs">${h.details || ''}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function runCleanup(action) {
+        if (!confirm('Confirmer le nettoyage ?')) return;
+        const btn = event.target.closest('button');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> En cours...';
+        btn.disabled = true;
+        try {
+            const result = await apiFetch('/disks/cleanup/execute', {
+                method: 'POST',
+                body: JSON.stringify({ action }),
+            });
+            if (result.ok) {
+                await loadStats();
+                await loadHistory();
+                alert('Nettoyage terminé avec succès !');
+            } else {
+                alert('Erreur: ' + (result.detail || 'Voir les logs'));
+            }
+        } catch (e) {
+            alert('Erreur: ' + e.message);
+        } finally {
+            btn.innerHTML = orig;
+            btn.disabled = false;
+        }
+    }
+
+    (async () => {
+        if (await checkAuth()) {
+            await Promise.all([loadStats(), loadHistory()]);
+        }
+    })();
+</script>
+{% endblock %}
