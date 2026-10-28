@@ -13,41 +13,49 @@
             <i class="fas fa-trash-alt text-red-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Docker prune complet</div>
             <div class="text-sm text-slate-400 mt-1">Images, volumes, cache build + conteneurs arrêtés</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_prune">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('docker_builder')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fas fa-truck-loading text-blue-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Builder cache</div>
             <div class="text-sm text-slate-400 mt-1">Supprimer tout le cache de construction Docker</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_builder">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('docker_images')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fas fa-image text-purple-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Images Docker</div>
             <div class="text-sm text-slate-400 mt-1">Supprimer les images non utilisées</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_images">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('docker_volumes')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fas fa-database text-green-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Volumes Docker</div>
             <div class="text-sm text-slate-400 mt-1">Supprimer les volumes orphelins</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_volumes">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('logs')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fas fa-scroll text-yellow-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Logs système</div>
             <div class="text-sm text-slate-400 mt-1">Vacuum journalctl à 50MB</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="logs">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('tmp')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fas fa-temp text-orange-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Temporaires</div>
             <div class="text-sm text-slate-400 mt-1">Vider /tmp et /var/tmp</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="tmp">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('pnpm')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fab fa-node text-green-500 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Cache pnpm</div>
-            <div class="text-sm text-slate-400 mt-1">Supprimer le store pnpm (~700MB)</div>
+            <div class="text-sm text-slate-400 mt-1">Supprimer le store pnpm</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="pnpm">Gain estimé : calcul…</div>
         </button>
         <button onclick="runCleanup('npm')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
             <i class="fab fa-npm text-red-500 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
             <div class="font-bold text-lg">Cache npm</div>
             <div class="text-sm text-slate-400 mt-1">Purger le cache npm</div>
+            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="npm">Gain estimé : calcul…</div>
         </button>
     </div>
 
@@ -73,6 +81,15 @@
 
 {% block scripts %}
 <script>
+    async function loadCleanupEstimates() {
+        const stats = await apiFetch('/disks/stats');
+        Object.entries(stats.cleanup_estimates || {}).forEach(([action, bytes]) => {
+            document.querySelectorAll(`[data-cleanup-estimate="${action}"]`).forEach(el => {
+                el.textContent = `Gain estimé : ${formatBytes(bytes)}`;
+            });
+        });
+    }
+
     async function runCleanup(action) {
         if (!confirm('Confirmer cette action de nettoyage ?')) return;
         const btn = event.target.closest('button');
@@ -86,7 +103,7 @@
             });
             if (result.ok) {
                 alert('Nettoyage terminé !');
-                await loadHistory();
+                await Promise.all([loadHistory(), loadCleanupEstimates()]);
             } else {
                 alert('Erreur: ' + (result.detail || 'Erreur inconnue'));
             }
@@ -117,7 +134,7 @@
     }
 
     (async () => {
-        if (await checkAuth()) await loadHistory();
+        if (await checkAuth()) await Promise.all([loadHistory(), loadCleanupEstimates()]);
     })();
 </script>
 {% endblock %}

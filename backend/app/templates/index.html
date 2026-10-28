@@ -22,7 +22,7 @@
             <div class="stat-value text-green-400" id="stat-free">-</div>
         </div>
         <div class="card rounded-xl p-5">
-            <div class="text-slate-400 text-sm mb-1">Taux d'utilisation</div>
+            <div class="text-slate-400 text-sm mb-1">Taux d'utilisation du disque</div>
             <div class="stat-value" id="stat-percent">-</div>
             <div class="progress-bar mt-2">
                 <div class="progress-fill bg-accent" id="progress-bar" style="width:0%"></div>
@@ -51,23 +51,23 @@
             <div class="space-y-2">
                 <button onclick="runCleanup('docker_prune')" class="w-full btn-danger py-2 px-4 rounded-lg text-left flex items-center gap-3">
                     <i class="fas fa-trash-alt w-5"></i>
-                    <div><div class="font-semibold">Docker prune complet</div><div class="text-xs text-slate-400">Images + volumes + cache</div></div>
+                    <div><div class="font-semibold">Docker prune complet</div><div class="text-xs text-slate-400">Images + volumes + cache · <span data-cleanup-estimate="docker_prune">Calcul…</span></div></div>
                 </button>
                 <button onclick="runCleanup('docker_images')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
                     <i class="fas fa-images w-5 text-blue-400"></i>
-                    <div><div class="font-semibold">Supprimer images inutilisées</div><div class="text-xs text-slate-400">Images non utilisées</div></div>
+                    <div><div class="font-semibold">Supprimer images inutilisées</div><div class="text-xs text-slate-400">Images non utilisées · <span data-cleanup-estimate="docker_images">Calcul…</span></div></div>
                 </button>
                 <button onclick="runCleanup('logs')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
                     <i class="fas fa-scroll w-5 text-purple-400"></i>
-                    <div><div class="font-semibold">Rotation logs</div><div class="text-xs text-slate-400">Journalctl < 50MB</div></div>
+                    <div><div class="font-semibold">Rotation logs</div><div class="text-xs text-slate-400">Journalctl < 50MB · <span data-cleanup-estimate="logs">Calcul…</span></div></div>
                 </button>
                 <button onclick="runCleanup('tmp')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
                     <i class="fas fa temp w-5 text-yellow-400"></i>
-                    <div><div class="font-semibold">Vider /tmp</div><div class="text-xs text-slate-400">Fichiers temporaires</div></div>
+                    <div><div class="font-semibold">Vider /tmp</div><div class="text-xs text-slate-400">Fichiers temporaires · <span data-cleanup-estimate="tmp">Calcul…</span></div></div>
                 </button>
                 <button onclick="runCleanup('pnpm')" class="w-full py-2 px-4 rounded-lg text-left flex items-center gap-3 bg-slate-700 hover:bg-slate-600">
                     <i class="fab fa-npm w-5 text-red-400"></i>
-                    <div><div class="font-semibold">Cache pnpm</div><div class="text-xs text-slate-400">Supprimer le store pnpm</div></div>
+                    <div><div class="font-semibold">Cache pnpm</div><div class="text-xs text-slate-400">Supprimer le store pnpm · <span data-cleanup-estimate="pnpm">Calcul…</span></div></div>
                 </button>
             </div>
         </div>
@@ -112,6 +112,11 @@
         document.getElementById('docker-volumes').textContent = stats.docker_volumes_count || 0;
         document.getElementById('docker-total').textContent = stats.docker_total ? formatBytes(stats.docker_total) : '-';
         document.getElementById('docker-reclaimable').textContent = stats.reclaimable_str || formatBytes(stats.reclaimable || 0);
+        Object.entries(stats.cleanup_estimates || {}).forEach(([action, bytes]) => {
+            document.querySelectorAll(`[data-cleanup-estimate="${action}"]`).forEach(el => {
+                el.textContent = `Gain estimé : ${formatBytes(bytes)}`;
+            });
+        });
     }
 
     async function loadHistory() {
