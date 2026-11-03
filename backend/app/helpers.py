@@ -1,5 +1,7 @@
 import os
 import logging
+import secrets
+import hmac
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -14,7 +16,6 @@ logger = logging.getLogger("disk-monitor")
 JWT_SECRET = os.environ.get("JWT_SECRET", os.urandom(32).hex())
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_DAYS = 30
-INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", os.urandom(32).hex())
 
 security = HTTPBearer()
 
@@ -58,10 +59,27 @@ def now_iso() -> str:
 
 def verify_internal_token(header_value: str) -> bool:
     """Vérifie le token secret utilisé par Cronicle pour appeler l'API."""
-    return header_value.strip() == INTERNAL_TOKEN
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès interdit")
-    return user
+    return hmac.compare_digest(header_value.strip(), get_internal_token())
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+
+def get_internal_token() -> str:
+    """Use an explicitly configured token, or persist a generated one across restarts."""
+    configured = os.environ.get("INTERNAL_TOKEN", "").strip()
+    if configured:
+        return configured
+    # The database is initialised during application startup before this helper
+    # is used by a route.  Keeping the fallback there avoids silently changing
+    # Cronicle credentials at every container restart.
+    from app.database import get_db
+
+    db = get_db()
+    row = db.execute("SELECT value FROM app_settings WHERE key = 'internal_token'").fetchone()
+    if row:
+        return row["value"]
+    token = secrets.token_urlsafe(32)
+    db.execute(
+        "INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)",
+        ("internal_token", token, now_iso()),
+    )
+    db.commit()
+    return token

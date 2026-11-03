@@ -33,6 +33,12 @@ def init_db():
             updated_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS cleanup_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             action TEXT NOT NULL,

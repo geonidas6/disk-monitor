@@ -111,7 +111,9 @@
                 }
             });
             if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login'; }
-            return res.json();
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(payload.detail || `Erreur HTTP ${res.status}`);
+            return payload;
         }
 
         function formatBytes(b) {

@@ -11,9 +11,14 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-pls}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN:-}
       DB_PATH: /data/disk_monitor.db
+      # The monitor must inspect the VPS, not its own overlay filesystem.
+      HOST_ROOT: /host
       PYTHONUNBUFFERED: "1"
     volumes:
       - disk_data:/data
+      # Deliberately writable: cleanup actions are protected by admin auth and
+      # display their safety level before execution.
+      - /:/host:rw
       # Docker socket pour permettre les commandes docker depuis le conteneur
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:

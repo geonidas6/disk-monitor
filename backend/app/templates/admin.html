@@ -1,140 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="space-y-6">
-    <div>
-        <h1 class="text-2xl font-bold flex items-center gap-2">
-            <i class="fas fa-broom text-accent"></i> Nettoyage avancé
-        </h1>
-        <p class="text-slate-400 mt-1">Actions de nettoyage complètes</p>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <button onclick="runCleanup('docker_prune')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-trash-alt text-red-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Docker prune complet</div>
-            <div class="text-sm text-slate-400 mt-1">Images, volumes, cache build + conteneurs arrêtés</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_prune">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('docker_builder')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-truck-loading text-blue-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Builder cache</div>
-            <div class="text-sm text-slate-400 mt-1">Supprimer tout le cache de construction Docker</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_builder">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('docker_images')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-image text-purple-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Images Docker</div>
-            <div class="text-sm text-slate-400 mt-1">Supprimer les images non utilisées</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_images">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('docker_volumes')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-database text-green-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Volumes Docker</div>
-            <div class="text-sm text-slate-400 mt-1">Supprimer les volumes orphelins</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="docker_volumes">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('logs')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-scroll text-yellow-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Logs système</div>
-            <div class="text-sm text-slate-400 mt-1">Vacuum journalctl à 50MB</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="logs">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('tmp')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fas fa-temp text-orange-400 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Temporaires</div>
-            <div class="text-sm text-slate-400 mt-1">Vider /tmp et /var/tmp</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="tmp">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('pnpm')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fab fa-node text-green-500 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Cache pnpm</div>
-            <div class="text-sm text-slate-400 mt-1">Supprimer le store pnpm</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="pnpm">Gain estimé : calcul…</div>
-        </button>
-        <button onclick="runCleanup('npm')" class="card rounded-xl p-5 text-left hover:border-accent transition-colors group">
-            <i class="fab fa-npm text-red-500 text-2xl mb-3 group-hover:scale-110 transition-transform"></i>
-            <div class="font-bold text-lg">Cache npm</div>
-            <div class="text-sm text-slate-400 mt-1">Purger le cache npm</div>
-            <div class="text-sm text-green-400 mt-2" data-cleanup-estimate="npm">Gain estimé : calcul…</div>
-        </button>
-    </div>
-
-    <div class="card rounded-xl p-6">
-        <h2 class="font-bold text-lg mb-4"><i class="fas fa-history text-slate-400 mr-2"></i>Historique</h2>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-slate-400 text-left border-b border-slate-700">
-                        <th class="pb-2">Date</th>
-                        <th class="pb-2">Action</th>
-                        <th class="pb-2">Espace libéré</th>
-                        <th class="pb-2">Statut</th>
-                        <th class="pb-2">Détails</th>
-                    </tr>
-                </thead>
-                <tbody id="history-table"></tbody>
-            </table>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold flex items-center gap-2"><i class="fas fa-shield-halved text-accent"></i> Nettoyage contrôlé</h1>
+            <p class="text-slate-400 mt-1">Analyse du VPS réel, estimations avant suppression et résultat mesuré après action.</p>
         </div>
+        <button onclick="loadAnalysis()" class="btn-secondary px-4 py-2 rounded-lg"><i class="fas fa-rotate mr-2"></i>Analyser à nouveau</button>
     </div>
+
+    <div id="protected-box"></div>
+
+    <section>
+        <h2 class="font-bold text-lg mb-3"><i class="fas fa-broom text-accent mr-2"></i>Actions de nettoyage</h2>
+        <div id="cleanup-actions" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-slate-400">Analyse en cours…</p>
+        </div>
+    </section>
+
+    <section class="card rounded-xl p-6">
+        <h2 class="font-bold text-lg mb-1"><i class="fas fa-weight-hanging text-blue-400 mr-2"></i>Répertoires les plus lourds</h2>
+        <p class="text-sm text-slate-400 mb-4">Ils sont affichés pour investigation ; aucun n'est supprimé automatiquement.</p>
+        <div id="heavy-folders" class="space-y-2"></div>
+    </section>
+
+    <section class="card rounded-xl p-6">
+        <h2 class="font-bold text-lg mb-4"><i class="fas fa-history text-slate-400 mr-2"></i>Historique</h2>
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-slate-400 text-left border-b border-slate-700"><th class="pb-2">Date</th><th class="pb-2">Action</th><th class="pb-2">Espace libéré</th><th class="pb-2">Statut</th><th class="pb-2">Détails</th></tr></thead><tbody id="history-table"></tbody></table></div>
+    </section>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    async function loadCleanupEstimates() {
-        const stats = await apiFetch('/disks/stats');
-        Object.entries(stats.cleanup_estimates || {}).forEach(([action, bytes]) => {
-            document.querySelectorAll(`[data-cleanup-estimate="${action}"]`).forEach(el => {
-                el.textContent = `Gain estimé : ${formatBytes(bytes)}`;
-            });
-        });
+    const riskClass = { safe: 'bg-green-500/20 text-green-300', caution: 'bg-amber-500/20 text-amber-300', danger: 'bg-red-500/20 text-red-300' };
+    const riskLabel = { safe: 'Sans risque de données', caution: 'Attention', danger: 'Données à risque' };
+    const riskIcon = { safe: 'fa-circle-check', caution: 'fa-triangle-exclamation', danger: 'fa-circle-exclamation' };
+
+    function escapeHtml(value) {
+        const node = document.createElement('span'); node.textContent = value || ''; return node.innerHTML;
     }
 
-    async function runCleanup(action) {
-        if (!confirm('Confirmer cette action de nettoyage ?')) return;
-        const btn = event.target.closest('button');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exécution...';
-        btn.disabled = true;
+    async function loadAnalysis() {
+        const actions = document.getElementById('cleanup-actions');
+        actions.innerHTML = '<p class="text-slate-400">Analyse du VPS en cours…</p>';
         try {
-            const result = await apiFetch('/disks/cleanup/execute', {
-                method: 'POST',
-                body: JSON.stringify({ action }),
-            });
-            if (result.ok) {
-                alert('Nettoyage terminé !');
-                await Promise.all([loadHistory(), loadCleanupEstimates()]);
-            } else {
-                alert('Erreur: ' + (result.detail || 'Erreur inconnue'));
-            }
-        } catch (e) {
-            alert('Erreur: ' + e.message);
+            const report = await apiFetch('/disks/analysis');
+            document.getElementById('protected-box').innerHTML = `<div class="border border-red-500/40 bg-red-500/10 rounded-xl p-4 text-sm"><i class="fas ${riskIcon.danger} text-red-300 mr-2"></i><b>${escapeHtml(report.protected.path)} · ${report.protected.bytes_str}</b><div class="text-slate-300 mt-1">${escapeHtml(report.protected.description)}</div></div>`;
+            actions.innerHTML = report.actions.map(item => `<article class="card rounded-xl p-5 flex flex-col gap-3"><div class="flex justify-between gap-3"><h3 class="font-bold">${escapeHtml(item.title)}</h3><span class="shrink-0 px-2 py-1 rounded-full text-xs ${riskClass[item.risk]}"><i class="fas ${riskIcon[item.risk]} mr-1"></i>${riskLabel[item.risk]}</span></div><p class="text-sm text-slate-400 min-h-10">${escapeHtml(item.description)}</p><div class="flex items-center justify-between gap-3 mt-auto"><div><div class="text-xs text-slate-500">Gain estimé</div><div class="font-mono text-green-300">${item.bytes_str}</div></div><button data-action="${item.action}" onclick="runCleanup(this)" class="${item.risk === 'danger' ? 'btn-danger' : item.risk === 'caution' ? 'btn-secondary' : 'btn-primary'} px-3 py-2 rounded-lg text-sm">Nettoyer</button></div></article>`).join('');
+            const folders = report.findings || [];
+            document.getElementById('heavy-folders').innerHTML = folders.length ? folders.map(folder => `<div class="flex justify-between gap-4 border-b border-slate-700/70 py-2"><code class="text-slate-300 break-all">${escapeHtml(folder.path)}</code><span class="font-mono text-amber-300 shrink-0">${formatBytes(folder.bytes)}</span></div>`).join('') : '<p class="text-slate-500">Aucun répertoire analysable.</p>';
+        } catch (error) {
+            actions.innerHTML = `<p class="text-red-300">Analyse impossible : ${escapeHtml(error.message)}</p>`;
+        }
+    }
+
+    async function runCleanup(button) {
+        const action = button.dataset.action;
+        const name = button.closest('article').querySelector('h3').textContent;
+        if (!confirm(`Confirmer : ${name} ?\n\nLe gain réel sera mesuré et ajouté à l'historique.`)) return;
+        const original = button.innerHTML;
+        button.disabled = true; button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+            const result = await apiFetch('/disks/cleanup/execute', { method: 'POST', body: JSON.stringify({ action }) });
+            await Promise.all([loadAnalysis(), loadHistory()]);
+            alert(result.freed > 0 ? `Nettoyage terminé : ${result.freed_str} libéré.` : `Action terminée, mais aucun espace n'était récupérable.\n\n${result.details}`);
+        } catch (error) {
+            alert(`Le nettoyage a échoué : ${error.message}`);
         } finally {
-            btn.innerHTML = orig;
-            btn.disabled = false;
+            button.disabled = false; button.innerHTML = original;
         }
     }
 
     async function loadHistory() {
         const history = await apiFetch('/disks/history?limit=30');
-        const tbody = document.getElementById('history-table');
-        if (!history.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-slate-500">Aucun historique</td></tr>';
-            return;
-        }
-        tbody.innerHTML = history.map(h => `
-            <tr class="border-b border-slate-800 hover:bg-slate-800/50">
-                <td class="py-2 text-slate-400">${formatDate(h.created_at)}</td>
-                <td class="py-2 font-mono text-xs">${h.action}</td>
-                <td class="py-2 font-mono">${h.space_freed_bytes ? formatBytes(h.space_freed_bytes) : '-'}</td>
-                <td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs ${h.status === 'ok' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${h.status}</span></td>
-                <td class="py-2 text-slate-400 text-xs">${h.details || ''}</td>
-            </tr>
-        `).join('');
+        document.getElementById('history-table').innerHTML = history.length ? history.map(h => `<tr class="border-b border-slate-800 hover:bg-slate-800/50"><td class="py-2 text-slate-400">${formatDate(h.created_at)}</td><td class="py-2 font-mono text-xs">${escapeHtml(h.action)}</td><td class="py-2 font-mono">${formatBytes(h.space_freed_bytes || 0)}</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs ${h.status === 'ok' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${escapeHtml(h.status)}</span></td><td class="py-2 text-slate-400 text-xs">${escapeHtml(h.details)}</td></tr>`).join('') : '<tr><td colspan="5" class="py-4 text-center text-slate-500">Aucun historique</td></tr>';
     }
 
-    (async () => {
-        if (await checkAuth()) await Promise.all([loadHistory(), loadCleanupEstimates()]);
-    })();
+    (async () => { if (await checkAuth()) await Promise.all([loadAnalysis(), loadHistory()]); })();
 </script>
 {% endblock %}

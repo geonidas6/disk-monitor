@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 from app.database import get_db
-from app.helpers import require_admin, now_iso, logger
+from app.helpers import get_internal_token, require_admin, now_iso, logger
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -19,9 +19,9 @@ CRONICLE_JOBS = [
     {
         "key": "docker_prune",
         "title": "Nettoyage Docker complet",
-        "description": "Supprime les images inutilisées, volumes orphelins et build cache.",
+        "description": "Supprime les conteneurs arrêtés, images et cache inutilisés. Les volumes sont toujours conservés.",
         "schedule": "Tous les dimanches à 03:00",
-        "command": 'curl -sf -X POST https://stat.it-sefako.com/disks/cleanup/execute/cron -H "Content-Type: application/json" -H "X-Internal-Token: c287fbf8fc89988b602bbad5ce828c18e537f96eb4c912b927fc40757779f7ea" -d \'{"action":"docker_prune"}\'',
+        "action": "docker_prune",
         "timing": {"hours": [3], "minutes": [0]},
     },
     {
@@ -29,7 +29,7 @@ CRONICLE_JOBS = [
         "title": "Rotation des logs",
         "description": "Vacuum journalctl et suppression des logs anciens.",
         "schedule": "Tous les jours à 02:00",
-        "command": 'curl -sf -X POST https://stat.it-sefako.com/disks/cleanup/execute/cron -H "Content-Type: application/json" -H "X-Internal-Token: c287fbf8fc89988b602bbad5ce828c18e537f96eb4c912b927fc40757779f7ea" -d \'{"action":"logs"}\'',
+        "action": "logs",
         "timing": {"hours": [2], "minutes": [0]},
     },
     {
@@ -37,18 +37,29 @@ CRONICLE_JOBS = [
         "title": "Nettoyage /tmp",
         "description": "Supprime les fichiers temporaires de plus de 7 jours.",
         "schedule": "Tous les jours à 04:00",
-        "command": 'curl -sf -X POST https://stat.it-sefako.com/disks/cleanup/execute/cron -H "Content-Type: application/json" -H "X-Internal-Token: c287fbf8fc89988b602bbad5ce828c18e537f96eb4c912b927fc40757779f7ea" -d \'{"action":"tmp"}\'',
+        "action": "tmp",
         "timing": {"hours": [4], "minutes": [0]},
     },
     {
         "key": "pnpm_cache",
         "title": "Nettoyage cache pnpm",
-        "description": "Purge le store pnpm si > 500MB.",
+        "description": "Purge le store pnpm ; les paquets seront retéléchargés seulement si nécessaire.",
         "schedule": "Tous les lundis à 05:00",
-        "command": 'curl -sf -X POST https://stat.it-sefako.com/disks/cleanup/execute/cron -H "Content-Type: application/json" -H "X-Internal-Token: c287fbf8fc89988b602bbad5ce828c18e537f96eb4c912b927fc40757779f7ea" -d \'{"action":"pnpm"}\'',
+        "action": "pnpm",
         "timing": {"hours": [5], "minutes": [0]},
     },
 ]
+
+
+def cron_command(action: str) -> str:
+    """Generated server-side so the schedule token is never committed or sent to the UI."""
+    return (
+        "curl --fail-with-body --silent --show-error -X POST "
+        "https://stat.it-sefako.com/disks/cleanup/execute/cron "
+        "-H 'Content-Type: application/json' "
+        f"-H 'X-Internal-Token: {get_internal_token()}' "
+        f"--data '{{\"action\":\"{action}\"}}'"
+    )
 
 
 def _get_cronicle_config():
@@ -88,7 +99,7 @@ def cronicle_payload(job: dict) -> dict:
         "algo": "prefer_first",
         "plugin": "shellplug",
         "params": {
-            "script": "#!/bin/bash\n" + job["command"],
+            "script": "#!/bin/bash\nset -euo pipefail\n" + cron_command(job["action"]),
             "annotate": 1,
             "json": 1,
         },
@@ -111,7 +122,7 @@ async def get_cronicle_config(admin: dict = Depends(require_admin)):
         "url": cfg["url"],
         "api_key_set": bool(cfg["api_key"]),
         "api_key_masked": mask_secret(cfg["api_key"]),
-        "jobs": CRONICLE_JOBS,
+        "jobs": [{key: value for key, value in job.items() if key != "action"} for job in CRONICLE_JOBS],
     }
 
 
