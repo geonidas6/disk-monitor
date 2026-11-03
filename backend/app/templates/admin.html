@@ -81,6 +81,10 @@
         try {
             const result = await apiFetch('/disks/cleanup/execute', { method: 'POST', body: JSON.stringify({ action }) });
             await Promise.all([loadAnalysis(), loadHistory()]);
+            if (!result.ok) {
+                alert(`La suppression a échoué : ${result.details || 'Voir les logs'}`);
+                return;
+            }
             alert(result.freed > 0 ? `Nettoyage terminé : ${result.freed_str} libéré.` : `Action terminée, mais aucun espace n'était récupérable.\n\n${result.details}`);
         } catch (error) {
             alert(`Le nettoyage a échoué : ${error.message}`);

@@ -240,21 +240,32 @@ def _remove_path(path: str) -> None:
 
 
 def _clean_old_temp() -> tuple[int, str, str]:
+    """Remove eligible temporary entries and report permission failures.
+
+    A cleanup must never silently claim success when a file could not be
+    removed.  This is especially important for /tmp where files are often
+    owned by another service.
+    """
     cutoff = time.time() - TEMP_MAX_AGE_SECONDS
     removed = 0
+    failures: list[str] = []
     for directory in (host_path("/tmp"), host_path("/var/tmp")):
         try:
             entries = list(os.scandir(directory))
-        except OSError:
+        except OSError as exc:
+            failures.append(f"{directory.removeprefix(HOST_ROOT) or '/'}: {exc.strerror or exc}")
             continue
         for entry in entries:
             try:
                 if entry.stat(follow_symlinks=False).st_mtime < cutoff:
                     _remove_path(entry.path)
                     removed += 1
-            except OSError:
-                continue
-    return 0, f"{removed} élément(s) temporaire(s) ancien(s) supprimé(s)", ""
+            except OSError as exc:
+                failures.append(f"{entry.path.removeprefix(HOST_ROOT) or '/'}: {exc.strerror or exc}")
+    output = f"{removed} élément(s) temporaire(s) ancien(s) supprimé(s)"
+    if failures:
+        return 1, output, "; ".join(failures[:5])
+    return 0, output, ""
 
 
 def _cleanup(action: str) -> tuple[int, str, str]:
@@ -278,7 +289,13 @@ def _cleanup(action: str) -> tuple[int, str, str]:
         path = paths[action]
         if not os.path.lexists(path):
             return 0, "Aucun élément à supprimer", ""
-        _remove_path(path)
+        try:
+            _remove_path(path)
+        except OSError as exc:
+            return 1, "", f"Suppression impossible de {path.removeprefix(HOST_ROOT) or '/'} : {exc.strerror or exc}"
+        # Verify the actual host mount, rather than merely trusting rmtree.
+        if os.path.lexists(path):
+            return 1, "", f"La suppression de {path.removeprefix(HOST_ROOT) or '/'} n'a pas été vérifiée"
         return 0, f"Supprimé : {path.removeprefix(HOST_ROOT) or '/'}", ""
     if action not in commands:
         raise HTTPException(status_code=400, detail=f"Action inconnue: {action}")
@@ -291,11 +308,17 @@ def _execute_and_record(action: str) -> dict[str, Any]:
     if action not in CLEANUP_CATALOG:
         raise HTTPException(status_code=400, detail=f"Action inconnue: {action}")
     before = get_disk_stats()["free"]
-    rc, output, error = _cleanup(action)
+    try:
+        rc, output, error = _cleanup(action)
+    except Exception as exc:
+        # Persist unexpected filesystem failures too, so the UI never turns a
+        # failed click into an unexplained apparent success.
+        logger.exception("Cleanup %s crashed", action)
+        rc, output, error = 1, "", str(exc)
     after = get_disk_stats()["free"]
     freed = max(0, after - before)
     status = "ok" if rc == 0 else "error"
-    details = f"{output or 'Commande terminée'} | libéré={format_bytes(freed)}"
+    details = f"{output or ('Échec de la suppression' if rc else 'Aucun élément à supprimer')} | libéré={format_bytes(freed)}"
     if error:
         details += f" | erreur={error}"
     db = get_db()
