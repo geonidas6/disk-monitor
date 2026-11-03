@@ -6,9 +6,10 @@
             <h1 class="text-2xl font-bold flex items-center gap-2"><i class="fas fa-shield-halved text-accent"></i> Nettoyage contrôlé</h1>
             <p class="text-slate-400 mt-1">Analyse du VPS réel, estimations avant suppression et résultat mesuré après action.</p>
         </div>
-        <button onclick="loadAnalysis()" class="btn-secondary px-4 py-2 rounded-lg"><i class="fas fa-rotate mr-2"></i>Analyser à nouveau</button>
+        <button id="analyse-btn" onclick="loadAnalysis()" class="btn-secondary px-4 py-2 rounded-lg"><i class="fas fa-rotate mr-2"></i>Analyser à nouveau</button>
     </div>
 
+    <div id="analysis-status" class="hidden rounded-xl border px-4 py-3 text-sm" role="status" aria-live="polite"></div>
     <div id="protected-box"></div>
 
     <section>
@@ -43,15 +44,31 @@
 
     async function loadAnalysis() {
         const actions = document.getElementById('cleanup-actions');
-        actions.innerHTML = '<p class="text-slate-400">Analyse du VPS en cours…</p>';
+        const button = document.getElementById('analyse-btn');
+        const status = document.getElementById('analysis-status');
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.classList.add('opacity-70', 'cursor-wait');
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Analyse en cours…';
+        status.className = 'rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 text-sm text-blue-200';
+        status.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Analyse du disque VPS et des répertoires lourds en cours. Cela peut prendre quelques secondes.';
+        actions.innerHTML = '<p class="text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Analyse du VPS en cours…</p>';
         try {
             const report = await apiFetch('/disks/analysis');
             document.getElementById('protected-box').innerHTML = `<div class="border border-red-500/40 bg-red-500/10 rounded-xl p-4 text-sm"><i class="fas ${riskIcon.danger} text-red-300 mr-2"></i><b>${escapeHtml(report.protected.path)} · ${report.protected.bytes_str}</b><div class="text-slate-300 mt-1">${escapeHtml(report.protected.description)}</div></div>`;
             actions.innerHTML = report.actions.map(item => `<article class="card rounded-xl p-5 flex flex-col gap-3"><div class="flex justify-between gap-3"><h3 class="font-bold">${escapeHtml(item.title)}</h3><span class="shrink-0 px-2 py-1 rounded-full text-xs ${riskClass[item.risk]}"><i class="fas ${riskIcon[item.risk]} mr-1"></i>${riskLabel[item.risk]}</span></div><p class="text-sm text-slate-400 min-h-10">${escapeHtml(item.description)}</p><div class="flex items-center justify-between gap-3 mt-auto"><div><div class="text-xs text-slate-500">Gain estimé</div><div class="font-mono text-green-300">${item.bytes_str}</div></div><button data-action="${item.action}" onclick="runCleanup(this)" class="${item.risk === 'danger' ? 'btn-danger' : item.risk === 'caution' ? 'btn-secondary' : 'btn-primary'} px-3 py-2 rounded-lg text-sm">Nettoyer</button></div></article>`).join('');
             const folders = report.findings || [];
             document.getElementById('heavy-folders').innerHTML = folders.length ? folders.map(folder => `<div class="flex justify-between gap-4 border-b border-slate-700/70 py-2"><code class="text-slate-300 break-all">${escapeHtml(folder.path)}</code><span class="font-mono text-amber-300 shrink-0">${formatBytes(folder.bytes)}</span></div>`).join('') : '<p class="text-slate-500">Aucun répertoire analysable.</p>';
+            status.className = 'rounded-xl border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-200';
+            status.innerHTML = `<i class="fas fa-circle-check mr-2"></i>Analyse terminée à ${new Date().toLocaleTimeString('fr-FR')} : ${report.actions.length} actions et ${folders.length} répertoires examinés.`;
         } catch (error) {
             actions.innerHTML = `<p class="text-red-300">Analyse impossible : ${escapeHtml(error.message)}</p>`;
+            status.className = 'rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200';
+            status.innerHTML = `<i class="fas fa-circle-exclamation mr-2"></i>Analyse impossible : ${escapeHtml(error.message)}`;
+        } finally {
+            button.disabled = false;
+            button.classList.remove('opacity-70', 'cursor-wait');
+            button.innerHTML = original;
         }
     }
 
